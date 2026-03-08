@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>주빈강철체력</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <style>
+        body { background-color: #f0f9ff; color: #0c4a6e; font-family: -apple-system, BlinkMacSystemFont, sans-serif; -webkit-tap-highlight-color: transparent; overflow-x: hidden; }
+        .glass { background: #ffffff; border: 2px solid #bae6fd; border-radius: 20px; box-shadow: 0 8px 25px rgba(56, 189, 248, 0.2); transition: 0.3s; }
+        .glass.done { background: #e0f2fe; border-color: #7dd3fc; opacity: 0.7; }
+        .glass.done .ex-title { text-decoration: line-through; color: #7dd3fc; }
+        
+        .dumbbell-wrap { display: flex; align-items: center; width: 100%; height: 36px; padding: 0 5px; }
+        .weight { width: 22px; height: 36px; background: #0284c7; border-radius: 6px; z-index: 2; border: 2px solid #0369a1; }
+        .bar-bg { flex: 1; height: 16px; background: #e0f2fe; position: relative; overflow: hidden; border-top: 2px solid #0284c7; border-bottom: 2px solid #0284c7; margin: 0 -2px; }
+        .bar-fill { height: 100%; background: linear-gradient(90deg, #38bdf8, #0284c7); width: 0%; transition: width 0.6s ease; }
+        
+        .day-btn { padding: 8px 16px; border-radius: 12px; font-weight: 800; color: #7dd3fc; background: #ffffff; border: 2px solid #e0f2fe; white-space: nowrap; }
+        .day-btn.active { background: #0ea5e9; color: white; border-color: #0284c7; }
+        
+        input[type="checkbox"] { width: 32px; height: 32px; border: 3px solid #38bdf8; border-radius: 10px; appearance: none; position: relative; background: #fff; cursor: pointer; }
+        input[type="checkbox"]:checked { background: #0ea5e9; }
+        input[type="checkbox"]:checked::after { content: '✓'; color: white; font-weight: 900; position: absolute; left: 6px; top: 2px; font-size: 20px; }
+        
+        #sidebar { position: fixed; top: 0; left: -280px; width: 280px; height: 100%; background: white; z-index: 1000; transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1); box-shadow: 10px 0 30px rgba(0,0,0,0.1); padding: 30px 20px; }
+        #sidebar.open { left: 0; }
+        .overlay { display: none; position: fixed; inset: 0; background: rgba(2, 6, 23, 0.4); z-index: 900; backdrop-filter: blur(4px); }
+        .modal { display: none; position: fixed; inset: 0; background: rgba(2, 6, 23, 0.6); z-index: 2000; align-items: center; justify-content: center; backdrop-filter: blur(5px); padding: 20px; }
+        
+        .photo-card { position: relative; background: white; border-radius: 20px; overflow: hidden; border: 2px solid #e0f2fe; }
+        .del-btn { position: absolute; top: 8px; right: 8px; width: 26px; height: 26px; background: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #ef4444; font-weight: bold; z-index: 10; box-shadow: 0 2px 5px rgba(0,0,0,0.1); cursor: pointer; }
+        .photo-img-wrap { aspect-ratio: 1; overflow: hidden; background: #f1f5f9; display: flex; align-items: center; justify-content: center; }
+        .photo-img-wrap img { width: 100%; height: 100%; object-fit: cover; }
+        .photo-date { padding: 6px; text-align: center; font-size: 11px; font-weight: 900; color: #0ea5e9; background: #f0f9ff; }
+        
+        .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; text-align: center; }
+        .cal-day { padding: 10px 0; font-size: 14px; font-weight: 900; border-radius: 12px; position: relative; min-height: 45px; display: flex; align-items: center; justify-content: center; background-color: #f0f9ff; color: #0c4a6e; }
+        .cal-today { background-color: #bae6fd; color: #0369a1; border: 2px solid #38bdf8; }
+        .done-mark::after { content: '🩵'; position: absolute; bottom: 2px; right: 2px; font-size: 11px; }
+    </style>
+</head>
+<body class="max-w-md mx-auto p-5 pb-28">
+
+    <div id="overlay" class="overlay" onclick="toggleSidebar()"></div>
+    <div id="sidebar">
+        <h2 class="text-3xl font-black text-sky-600 italic mb-10 tracking-tighter uppercase">Menu</h2>
+        <nav class="space-y-8 italic font-black">
+            <button onclick="showPage('main')" class="w-full text-left text-xl text-sky-800 flex items-center gap-3">🏠 HOME</button>
+            <button onclick="showPage('calendar')" class="w-full text-left text-xl text-sky-800 flex items-center gap-3">🩵 CALENDAR</button>
+            <button onclick="showPage('gallery')" class="w-full text-left text-xl text-sky-800 flex items-center gap-3">🩵 GALLERY</button>
+        </nav>
+    </div>
+
+    <button onclick="toggleSidebar()" class="fixed top-6 left-5 z-[500] text-sky-600 text-3xl font-bold">☰</button>
+
+    <div id="page-main">
+        <header class="mb-5 mt-3 text-center">
+            <div class="mb-3">
+                <p id="today-date" class="text-sky-500 font-black text-[10px] tracking-widest mb-1 uppercase italic"></p>
+                <p id="live-clock" class="text-3xl font-black text-sky-600 font-mono tracking-tighter italic"></p>
+            </div>
+            <h1 class="text-4xl font-black text-sky-600 tracking-tighter mb-1 italic uppercase">⚡️Jubin Fit⚡️</h1>
+            <div class="mb-6 px-4">
+                <p id="lyric" class="text-sky-500 font-bold text-[11px] italic leading-tight"></p>
+                <p id="singer" class="text-sky-300 text-[9px] font-black uppercase tracking-tight"></p>
+            </div>
+            <div class="glass p-4 text-left">
+                <div class="flex justify-between items-end mb-2 px-1">
+                    <span class="text-[10px] font-extrabold text-sky-600 tracking-widest uppercase italic">Mission Progress</span>
+                    <span id="p-text" class="text-2xl font-black text-sky-500">0%</span>
+                </div>
+                <div class="dumbbell-wrap">
+                    <div class="weight"></div>
+                    <div class="bar-bg"><div id="p-fill" class="bar-fill"></div></div>
+                    <div class="weight"></div>
+                </div>
+            </div>
+        </header>
+        <div class="flex gap-2 overflow-x-auto pb-4 scrollbar-hide" id="tabs"></div>
+        <div id="exercise-list" class="space-y-3"></div>
+    </div>
+
+    <div id="page-calendar" class="hidden pt-12">
+        <h2 class="text-3xl font-black text-sky-600 mb-6 italic text-center uppercase">🩵 Calendar</h2>
+        <div class="glass p-6">
+            <div class="flex justify-between items-center mb-6">
+                <button onclick="prevMonth()" class="text-sky-500 font-black text-xl px-2">◀</button>
+                <h3 id="cal-month" class="text-xl font-black text-sky-800 italic"></h3>
+                <button onclick="nextMonth()" class="text-sky-500 font-black text-xl px-2">▶</button>
+            </div>
+            <div class="calendar-grid text-sky-300 font-black text-[10px] mb-2 uppercase italic">
+                <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
+            </div>
+            <div id="calendar-days" class="calendar-grid"></div>
+        </div>
+    </div>
+
+    <div id="page-gallery" class="hidden pt-12">
+        <h2 class="text-3xl font-black text-sky-600 mb-6 italic text-center uppercase">🩵 Gallery</h2>
+        <div class="grid grid-cols-2 gap-3" id="photo-grid">
+            <div onclick="addPhoto()" class="photo-card cursor-pointer flex items-center justify-center bg-sky-50 border-2 border-dashed border-sky-300 min-h-[160px]">
+                <span class="text-sky-300 text-5xl font-black">+</span>
+            </div>
+        </div>
+        <input type="file" id="fileInput" class="hidden" accept="image/*" onchange="handleFile(event)">
+    </div>
+
+    <div class="fixed bottom-4 left-1/2 -translate-x-1/2 w-[92%] max-w-md glass p-3 flex justify-between items-center z-50 shadow-2xl border-sky-300">
+        <div class="flex flex-col ml-1">
+            <div class="flex items-center gap-2 mb-1">
+                <p class="text-[10px] text-sky-600 font-black uppercase italic tracking-tighter">Rest Timer ⏱️</p>
+                <select id="t-min" onchange="changeTimer()" class="bg-sky-50 border border-sky-300 text-sky-700 text-[10px] rounded px-1 font-bold outline-none">
+                    <option value="1">1분</option>
+                    <option value="3">3분</option>
+                    <option value="5" selected>5분</option>
+                    <option value="10">10분</option>
+                    <option value="15">15분</option>
+                </select>
+            </div>
+            <div id="timer" class="text-2xl font-mono font-black text-sky-700 leading-none mt-1">05:00</div>
+        </div>
+        <div class="flex gap-2">
+            <button onclick="toggleTimer()" id="tBtn" class="w-12 h-12 bg-sky-500 text-white rounded-full font-black shadow-lg">▶</button>
+            <button onclick="resetTimer()" class="w-12 h-12 bg-sky-100 text-sky-600 border-2 border-sky-300 rounded-full font-black">↺</button>
+        </div>
+    </div>
+
+    <div id="modal" class="modal" onclick="closeM()">
+        <div class="bg-white p-7 rounded-3xl w-full max-w-xs border-4 border-sky-200 shadow-2xl" onclick="event.stopPropagation()">
+            <h3 id="m-title" class="text-2xl font-black text-sky-700 mb-3 text-center italic leading-tight"></h3>
+            <div id="m-desc" class="text-sky-900 font-bold leading-relaxed mb-6 bg-sky-50 p-4 rounded-xl text-sm whitespace-pre-wrap max-h-60 overflow-y-auto"></div>
+            <button onclick="closeM()" class="w-full py-4 bg-sky-500 text-white font-black rounded-xl shadow-lg">확인 완료! 💪</button>
+        </div>
+    </div>
+
+    <div id="success-modal" class="modal" onclick="closeSuccess()">
+        <div class="bg-white p-8 rounded-3xl w-full max-w-xs border-4 border-sky-300 shadow-2xl text-center" onclick="event.stopPropagation()">
+            <div class="text-6xl mb-4">🤩🔥💙</div>
+            <h3 class="text-3xl font-black text-sky-700 mb-2 italic">MISSION CLEAR!</h3>
+            <p class="text-sky-900 font-bold leading-relaxed mb-6 bg-sky-50 p-4 rounded-xl text-lg">
+                오운완 폼 미쳤다!!<br>찢었다 주빈아!
+            </p>
+            <button onclick="closeSuccess()" class="w-full py-4 bg-sky-500 text-white font-black rounded-xl shadow-lg text-xl">나 진짜 최고야! 💪</button>
+        </div>
+    </div>
+
+    <script>
+        function updateClock() {
+            const now = new Date();
+            const days = ["일요일", "월요일", "화요일", "수요일", "목요일", "금요일", "토요일"];
+            document.getElementById('today-date').innerText = `${now.getFullYear()}. ${now.getMonth()+1}. ${now.getDate()} ${days[now.getDay()]} 🌊`;
+            document.getElementById('live-clock').innerText = now.toLocaleTimeString('ko-KR', { hour12: false });
+        }
+        setInterval(updateClock, 1000); updateClock();
+
+        const lyrics = [{q:"거칠어진 숨이 자꾸 뛰는 심장이 하고 싶은 걸 따라가자", s:"TWS"}, {q:"목표를 향해 질주해 난 더 높이가 비상", s:"Stray Kids"}, {q:"하고 싶은 건 거침없이 다 해", s:"부석순"}];
+        const randomL = lyrics[Math.floor(Math.random() * lyrics.length)];
+        document.getElementById('lyric').innerText = randomL.q;
+        document.getElementById('singer').innerText = `- ${randomL.s} -`;
+
+        let fallbackDates = [];
+        function getDoneDates() {
+            try { return JSON.parse(window.localStorage.getItem('jubinDoneDates') || '[]'); } 
+            catch(e) { return fallbackDates; }
+        }
+        function saveDoneDate(dateKey) {
+            let dates = getDoneDates();
+            if (!dates.includes(dateKey)) {
+                dates.push(dateKey);
+                try { window.localStorage.setItem('jubinDoneDates', JSON.stringify(dates)); } 
+                catch(e) { fallbackDates = dates; }
+            }
+        }
+
+        const commonStr = [
+            {n:"상체/하체 스트레칭", d:"[1분]\n양손을 깍지 끼고 정수리에 올려 지그시 눌러줘. 목과 관절을 천천히 돌리며 몸을 풀어주자!"},
+            {n:"동적 워밍업", d:"[1분]\n심박수를 올리고 관절을 부드럽게 만들기 위해 가볍게 팔벌려뛰기 20회!"}
+        ];
+        const finishStr = {n:"폼롤러 꿀휴식", d:"[5분]\n오늘 쓴 근육 부위를 폼롤러에 대고 문질문질! 내일 올 근육통을 막아주는 마법이야!"};
+
+        const data = {
+            1: {t:"월 (상체)", ex:[...commonStr, {n:"워밍업 러닝머신", d:"[15분]\n속도 6.0으로 걷다가 8.0으로 뛰기!"}, {n:"체스트 프레스", d:"[15kg / 15회 x 4세트]\n가슴 높이 조절 후 패드에 등 딱 붙이고 밀기!"}, {n:"렛풀다운", d:"[20kg / 15회 x 4세트]\n바를 넓게 잡고 쇄골 쪽으로 당겨내려!"}, {n:"시티드 로우", d:"[20kg / 15회 x 3세트]\n배꼽 쪽으로 노 젓듯이 등을 꽉 짜줘!"}, {n:"덤벨 숄더 프레스", d:"[4kg / 15회 x 4세트]\n귀 옆에서 머리 위로 세모 그리듯 올리기!"}, {n:"사이드 레터럴 레이즈", d:"[3kg / 15회 x 3세트]\n팔을 옆으로 나란히 들어 어깨 자극!"}, {n:"무릎 대고 푸쉬업", d:"[12회 x 3세트]\n가슴 힘으로 바닥 밀어내기!"}, finishStr]},
+            2: {t:"화 (하체)", ex:[...commonStr, {n:"워밍업 러닝머신", d:"[15분]\n혈액순환 쫙 돌려주기!"}, {n:"고블릿 스쿼트", d:"[덤벨 8kg / 15회 x 4세트]\n가슴 앞에 덤벨 안고 깊게 앉기!"}, {n:"레그 프레스", d:"[40kg / 15회 x 4세트]\n발판을 밀 때 무릎 다 펴지 않게 90%만!"}, {n:"레그 익스텐션", d:"[15kg / 15회 x 3세트]\n앞허벅지 힘으로 다리 쭉 펴기!"}, {n:"라잉 레그 컬", d:"[15kg / 15회 x 3세트]\n허벅지 뒤 힘으로 뒤꿈치 당기기!"}, {n:"맨몸 런지", d:"[양발 12회 x 3세트]\n뒷무릎이 닿기 전까지 내려가기!"}, {n:"카프 레이즈", d:"[20회 x 3세트]\n벽 잡고 뒤꿈치 들어 올리기!"}, finishStr]},
+            3: {t:"수 (상체)", ex:[...commonStr, {n:"워밍업 러닝머신", d:"[15분]\n수요일도 출석 완료!"}, {n:"케이블 암풀다운", d:"[15kg / 15회 x 4세트]\n팔 펴고 바를 아래로 지그시 누르기!"}, {n:"인클라인 덤벨 프레스", d:"[6kg / 15회 x 4세트]\n기울어진 벤치에서 윗가슴 밀기!"}, {n:"케이블 푸시다운", d:"[10kg / 15회 x 3세트]\n팔꿈치 고정하고 삼두 꽉 짜주기!"}, {n:"덤벨 컬", d:"[5kg / 15회 x 3세트]\n이두(알통) 만들기!"}, {n:"페이스 풀", d:"[10kg / 15회 x 3세트]\n로프를 얼굴 쪽으로 당겨 뒷어깨 자극!"}, {n:"복근 크런치", d:"[15회 x 3세트]\n배 힘으로 상체 들기!"}, finishStr]},
+            4: {t:"목 (하체)", ex:[...commonStr, {n:"워밍업 러닝머신", d:"[15분]\n하체 끝판왕 가보자고!"}, {n:"덤벨 루마니안 데드", d:"[10kg / 15회 x 4세트]\n엉덩이 뒤로 빼며 내려가기!"}, {n:"덤벨 런지", d:"[6kg / 12회 x 3세트]\n한 발씩 크게 내딛으며 앉기!"}, {n:"이너타이 머신", d:"[20kg / 15회 x 3세트]\n허벅지 안쪽 힘으로 꽉 오므리기!"}, {n:"백 익스텐션", d:"[15회 x 3세트]\n허리 힘으로 상체 세우기!"}, {n:"와이드 스쿼트", d:"[맨몸 20회 x 3세트]\n다리 넓게 벌리고 앉기!"}, {n:"코어 플랭크", d:"[1분 x 3세트]\n일직선 유지하며 배 힘 꽉!"}, finishStr]},
+            5: {t:"금 (상체)", ex:[...commonStr, {n:"워밍업 러닝머신", d:"[15분]\n불금 텐션 올려!"}, {n:"펙덱 플라이", d:"[15kg / 15회 x 4세트]\n박수 치듯 가슴 앞으로 모으기!"}, {n:"시티드 로우 (무겁게)", d:"[25kg / 12회 x 4세트]\n무겁게 등 근육 당기기!"}, {n:"벤트오버 레이즈", d:"[2kg / 15회 x 3세트]\n허리 숙여 팔 벌리며 뒷어깨 자극!"}, {n:"트라이셉스 킥백", d:"[3kg / 15회 x 3세트]\n팔 뒤로 뻥 차주기!"}, {n:"해머 컬", d:"[5kg / 15회 x 3세트]\n망치 쥐듯 세로로 잡고 접어 올리기!"}, {n:"러시안 트위스트", d:"[왕복 20회 x 3세트]\n상체 비틀어 옆구리 조이기!"}, finishStr]},
+            6: {t:"토 (전신)", ex:[...commonStr, {n:"실내 자전거", d:"[20분]\n해저 탐험 느낌으로 저항 높이기!"}, {n:"맨몸 스쿼트", d:"[25회 x 4세트]\n정석 자세로 하체 펌핑!"}, {n:"무릎 대고 푸쉬업", d:"[15회 x 3세트]\n체력 되는 만큼 밀어내기!"}, {n:"버피 테스트", d:"[10회 x 3세트]\n전신 지방 불태우기 끝판왕!"}, {n:"런지", d:"[15회 x 3세트]\n하체 밸런스 잡기!"}, {n:"플랭크", d:"[1분 x 3세트]\n코어 꽉 잡기!"}, {n:"가벼운 스트레칭", d:"[3분]\n관절 마디마디 펴주기!"}, finishStr]},
+            0: {t:"일 (휴식)", ex:[{n:"꿀맛 같은 완전 휴식", d:"주빈아 일주일 정말 고생했어! 오늘은 푹 자고 맛있는 거 먹자 🍕"}]}
+        };
+
+        let currentDay = new Date().getDay();
+        let confettiFired = false;
+
+        function drawEx() {
+            const list = document.getElementById('exercise-list'); list.innerHTML = '';
+            data[currentDay].ex.forEach((e, i) => {
+                const div = document.createElement('div');
+                div.className = 'glass p-4 flex justify-between items-center mb-3';
+                const safeTitle = e.n.replace(/'/g, "\\'").replace(/"/g, "&quot;");
+                const safeDesc = e.d.replace(/'/g, "\\'").replace(/"/g, "&quot;").replace(/\n/g, "\\n");
+                div.innerHTML = `
+                    <div onclick="openM('${safeTitle}', '${safeDesc}')" class="flex-1 cursor-pointer pr-3">
+                        <p class="text-[9px] text-sky-400 font-black mb-1 italic uppercase tracking-widest">Mission ${String(i+1).padStart(2,'0')}</p>
+                        <p class="ex-title text-lg font-black text-sky-900 leading-tight">${e.n}</p>
+                    </div>
+                    <input type="checkbox" onchange="updateP(this)">
+                `;
+                list.appendChild(div);
+            });
+            const tabs = document.getElementById('tabs'); tabs.innerHTML = '';
+            [1,2,3,4,5,6,0].forEach(d => {
+                tabs.innerHTML += `<button onclick="currentDay=${d};confettiFired=false;drawEx()" class="day-btn ${d===currentDay?'active':''}">${data[d].t.substring(0,1)}</button>`;
+            });
+            updateP();
+        }
+
+        function updateP(el) {
+            if(el) { el.closest('.glass').classList.toggle('done', el.checked); }
+            const chks = document.querySelectorAll('input[type="checkbox"]');
+            if(chks.length === 0) return;
+            const done = Array.from(chks).filter(c => c.checked).length;
+            const per = Math.round((done / chks.length) * 100) || 0;
+            document.getElementById('p-text').innerText = per + '%';
+            document.getElementById('p-fill').style.width = per + '%';
+
+            if (per < 100) {
+                confettiFired = false;
+            } else if(per === 100 && !confettiFired) {
+                confettiFired = true;
+                
+                document.getElementById('success-modal').style.display = 'flex';
+                
+                const d = new Date();
+                const todayKey = `${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}`;
+                saveDoneDate(todayKey);
+                renderCalendar();
+                
+                try { confetti({ particleCount: 150, spread: 80, origin: { y: 0.6 } }); } catch(err) {}
+            }
+        }
+
+        function openM(t, d) { document.getElementById('m-title').innerText = t; document.getElementById('m-desc').innerText = d; document.getElementById('modal').style.display = 'flex'; }
+        function closeM() { document.getElementById('modal').style.display = 'none'; }
+        function closeSuccess() { document.getElementById('success-modal').style.display = 'none'; }
+
+        function toggleSidebar() {
+            const sb = document.getElementById('sidebar');
+            const ov = document.getElementById('overlay');
+            sb.classList.toggle('open');
+            ov.style.display = sb.classList.contains('open') ? 'block' : 'none';
+        }
+
+        function showPage(page) {
+            ['main', 'calendar', 'gallery'].forEach(p => document.getElementById('page-'+p).classList.add('hidden'));
+            document.getElementById('page-'+page).classList.remove('hidden');
+            if(page === 'calendar') renderCalendar();
+            toggleSidebar();
+        }
+
+        let calDate = new Date();
+        function renderCalendar() {
+            const container = document.getElementById('calendar-days'); container.innerHTML = '';
+            const y = calDate.getFullYear(); const m = calDate.getMonth();
+            document.getElementById('cal-month').innerText = `${y}.${String(m+1).padStart(2,'0')}`;
+            const first = new Date(y, m, 1).getDay();
+            const last = new Date(y, m+1, 0).getDate();
+            
+            const today = new Date();
+            const isThisMonth = (today.getFullYear() === y && today.getMonth() === m);
+            const todayDate = today.getDate();
+
+            let doneDates = getDoneDates();
+            
+            for(let i=0; i<first; i++) container.innerHTML += '<div></div>';
+            for(let d=1; d<=last; d++) {
+                const dateKey = `${y}-${m+1}-${d}`;
+                const isToday = (isThisMonth && d === todayDate) ? 'cal-today' : '';
+                const hasDone = doneDates.includes(dateKey) ? 'done-mark' : '';
+                container.innerHTML += `<div class="cal-day ${isToday} ${hasDone}">${d}</div>`;
+            }
+        }
+        function prevMonth() { calDate.setMonth(calDate.getMonth()-1); renderCalendar(); }
+        function nextMonth() { calDate.setMonth(calDate.getMonth()+1); renderCalendar(); }
+
+        function addPhoto() { document.getElementById('fileInput').click(); }
+        function handleFile(e) {
+            const file = e.target.files[0];
+            if(file) {
+                const reader = new FileReader();
+                const d = new Date();
+                const dateStr = `${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getDate()).padStart(2,'0')}`;
+                reader.onload = (ev) => {
+                    const card = document.createElement('div');
+                    card.className = 'photo-card shadow-lg';
+                    card.innerHTML = `<div class="del-btn" onclick="this.parentElement.remove()">✕</div><div class="photo-img-wrap"><img src="${ev.target.result}"></div><div class="photo-date">${dateStr}</div>`;
+                    document.getElementById('photo-grid').prepend(card);
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+
+        // ⭐ 타이머 시간 변경 연결 함수 ⭐
+        let sec = 300; let run = false; let tId;
+        function changeTimer() { 
+            if(!run) { sec = parseInt(document.getElementById('t-min').value) * 60; drawT(); } 
+        }
+        function toggleTimer() {
+            const btn = document.getElementById('tBtn');
+            if(run) { clearInterval(tId); btn.innerText='▶'; }
+            else { tId = setInterval(()=> { if(sec>0){sec--; drawT();} else{clearInterval(tId); alert("휴식 끝! 다음 세트 가자! 🔥"); resetTimer();} }, 1000); btn.innerText='⏸'; }
+            run = !run;
+        }
+        function resetTimer() { clearInterval(tId); run=false; sec=parseInt(document.getElementById('t-min').value)*60; drawT(); document.getElementById('tBtn').innerText='▶'; }
+        function drawT() { document.getElementById('timer').innerText = `${Math.floor(sec/60).toString().padStart(2,'0')}:${(sec%60).toString().padStart(2,'0')}`; }
+
+        drawEx(); drawT(); renderCalendar();
+    </script>
+</body>
+</html>
